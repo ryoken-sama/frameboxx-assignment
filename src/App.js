@@ -1,21 +1,38 @@
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, Link, useParams, useNavigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Link, useNavigate, useParams } from 'react-router-dom';
 import './App.css';
 
 const API_URL = 'https://fakestoreapi.com';
 
 // Header Component
 function Header() {
+  const navigate = useNavigate();
+  const isLoggedIn = JSON.parse(localStorage.getItem('isLoggedIn'));
+
+  const handleLogout = () => {
+    localStorage.removeItem('isLoggedIn');
+    alert('You have been logged out.');
+    navigate('/');
+  };
+
   return (
     <header className="header">
       <div className="logo">
-        <Link to="/">E-Shop</Link>
+        <Link to="/">
+          <img src="/logo.png" alt="logo" />
+        </Link>
       </div>
       <nav className="navbar">
-        <Link to="/login">Login</Link>
-        <Link to="/signup">Signup</Link>
-        <Link to="/products">Products</Link>
+        <Link to="/">Products</Link>
         <Link to="/cart">Cart</Link>
+        {!isLoggedIn ? (
+          <>
+            <Link to="/login">Login</Link>
+            <Link to="/signup">Signup</Link>
+          </>
+        ) : (
+          <button onClick={handleLogout}>Logout</button>
+        )}
       </nav>
     </header>
   );
@@ -23,6 +40,12 @@ function Header() {
 
 // Utility function for cart management
 const addToCart = (product) => {
+  const isLoggedIn = JSON.parse(localStorage.getItem('isLoggedIn'));
+  if (!isLoggedIn) {
+    alert('You need to log in first to add items to the cart.');
+    return;
+  }
+
   const cartItems = JSON.parse(localStorage.getItem('cart')) || [];
   cartItems.push(product);
   localStorage.setItem('cart', JSON.stringify(cartItems));
@@ -37,8 +60,15 @@ function LoginForm() {
 
   const handleLogin = (e) => {
     e.preventDefault();
-    if (email && password) {
-      navigate('/products');
+    const users = JSON.parse(localStorage.getItem('users')) || [];
+    const validUser = users.find((user) => user.email === email && user.password === password);
+
+    if (validUser) {
+      localStorage.setItem('isLoggedIn', JSON.stringify(true));
+      alert('Login successful!');
+      navigate('/');
+    } else {
+      alert('Invalid email or password, or you haven’t signed up yet.');
     }
   };
 
@@ -73,7 +103,17 @@ function SignupForm() {
 
   const handleSignup = (e) => {
     e.preventDefault();
-    alert('Signup successful! You can now login.');
+    const users = JSON.parse(localStorage.getItem('users')) || [];
+    const userExists = users.find((user) => user.email === email);
+
+    if (userExists) {
+      alert('This email is already registered.');
+      return;
+    }
+
+    users.push({ email, password });
+    localStorage.setItem('users', JSON.stringify(users));
+    alert('Signup successful! You can now log in.');
   };
 
   return (
@@ -171,12 +211,20 @@ function SingleProductPage() {
 
 // Cart Page Component
 function CartPage() {
+  const navigate = useNavigate();
   const [cart, setCart] = useState([]);
 
   useEffect(() => {
+    const isLoggedIn = JSON.parse(localStorage.getItem('isLoggedIn'));
+    if (!isLoggedIn) {
+      alert('Please log in to view your cart.');
+      navigate('/login');
+      return;
+    }
+
     const savedCart = JSON.parse(localStorage.getItem('cart')) || [];
     setCart(savedCart);
-  }, []);
+  }, [navigate]);
 
   const clearCart = () => {
     localStorage.removeItem('cart');
@@ -216,6 +264,7 @@ function App() {
     <Router>
       <Header />
       <Routes>
+        <Route path="/" element={<ProductPage />} />
         <Route path="/login" element={<LoginForm />} />
         <Route path="/signup" element={<SignupForm />} />
         <Route path="/products" element={<ProductPage />} />
